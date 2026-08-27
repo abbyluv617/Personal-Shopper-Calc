@@ -1,0 +1,24 @@
+{
+  "name": "Personal Shopper Calculator",
+  "short_name": "Shopper Calc",
+  "description": "Calculate retail price + tax + finders fee totals for personal shopping sales.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#faf9f7",
+  "theme_color": "#1f1c1a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

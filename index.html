@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Personal Shopper Calculator</title>
+
+<!-- PWA setup -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1f1c1a">
+
+<!-- iOS "Add to Home Screen" support -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Shopper Calc">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<link rel="icon" href="icon-192.png">
+</head>
+<body>
+<div id="app"></div>
+<style>
+  :root {
+    --bg: #faf9f7;
+    --card: #ffffff;
+    --ink: #1f1c1a;
+    --ink-soft: #6b6560;
+    --accent: #b5603a;
+    --accent-soft: #f3e3da;
+    --line: #e8e3dd;
+    --good: #3f7d5c;
+  }
+  * { box-sizing: border-box; }
+  body, #app {
+    margin: 0;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  .wrap {
+    max-width: 460px;
+    margin: 0 auto;
+    padding: 20px 16px 40px;
+  }
+  h1 {
+    font-size: 1.3rem;
+    margin: 4px 0 2px;
+    letter-spacing: -0.01em;
+  }
+  .sub {
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+    margin-bottom: 18px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+  }
+  .row { margin-bottom: 14px; }
+  .row:last-child { margin-bottom: 0; }
+  .input-group {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .input-group .prefix, .input-group .suffix {
+    padding: 10px 12px;
+    background: #f5f2ee;
+    color: var(--ink-soft);
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+  .input-group input, .input-group select {
+    border: none;
+    outline: none;
+    padding: 10px 8px;
+    font-size: 1.05rem;
+    width: 100%;
+    background: transparent;
+    color: var(--ink);
+    font-family: inherit;
+  }
+  .input-group select { appearance: none; -webkit-appearance: none; }
+  .hint {
+    font-size: 0.72rem;
+    color: var(--ink-soft);
+    margin-top: 5px;
+  }
+  .fee-toggle {
+    display: flex;
+    gap: 8px;
+  }
+  .fee-btn {
+    flex: 1;
+    padding: 10px 8px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+  }
+  .fee-btn small {
+    display: block;
+    font-weight: 400;
+    color: var(--ink-soft);
+    font-size: 0.72rem;
+    margin-top: 2px;
+  }
+  .fee-btn.active {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .fee-btn.active small { color: var(--accent); }
+
+  .misc-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .switch {
+    position: relative;
+    width: 42px;
+    height: 24px;
+    flex-shrink: 0;
+  }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background: #d8d2ca;
+    border-radius: 24px;
+    transition: 0.15s;
+  }
+  .slider:before {
+    content: "";
+    position: absolute;
+    height: 18px; width: 18px;
+    left: 3px; top: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: 0.15s;
+  }
+  .switch input:checked + .slider { background: var(--accent); }
+  .switch input:checked + .slider:before { transform: translateX(18px); }
+
+  .breakdown-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.92rem;
+    padding: 7px 0;
+    border-bottom: 1px dashed var(--line);
+    gap: 10px;
+  }
+  .breakdown-line:last-of-type { border-bottom: none; }
+  .breakdown-line .label { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--ink-soft); }
+  .breakdown-line .val { font-weight: 600; white-space: nowrap; }
+  .tax-line-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+  }
+  .edit-pencil {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--accent);
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+  .edit-pencil:active { background: var(--accent-soft); }
+  .inline-tax-edit {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+  }
+  .inline-tax-edit input {
+    width: 64px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 4px 6px;
+    font-size: 0.9rem;
+    font-family: inherit;
+  }
+  .inline-tax-edit button {
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .total-card {
+    background: var(--ink);
+    color: #fff;
+    border-radius: 14px;
+    padding: 18px 16px;
+    margin-bottom: 14px;
+  }
+  .total-card .tlabel {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #cfc9c2;
+    margin-bottom: 4px;
+  }
+  .total-card .tval {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  details {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 12px 16px;
+  }
+  summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--ink);
+    outline: none;
+  }
+  .settings-body { margin-top: 14px; }
+  .section-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    margin: 18px 0 8px;
+  }
+  .section-label:first-child { margin-top: 0; }
+  .save-btn {
+    width: 100%;
+    margin-top: 16px;
+    padding: 12px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  .save-btn:active { opacity: 0.85; }
+  .status {
+    font-size: 0.78rem;
+    color: var(--good);
+    text-align: center;
+    margin-top: 8px;
+    height: 14px;
+  }
+  .footnote {
+    font-size: 0.75rem;
+    color: var(--ink-soft);
+    text-align: center;
+    margin-top: 10px;
+  }
+
+  .disclaimer-banner {
+    background: var(--accent-soft);
+    border: 1px solid #e2c3ae;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    font-size: 0.78rem;
+    color: #7a4326;
+    line-height: 1.4;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .disclaimer-banner .dsm { flex-shrink: 0; font-size: 1rem; line-height: 1; }
+  .disclaimer-banner .dismiss {
+    background: none;
+    border: none;
+    color: #7a4326;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 0.95rem;
+    flex-shrink: 0;
+    padding: 0 2px;
+  }
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 16, 14, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 100;
+  }
+  .modal-box {
+    background: #fff;
+    border-radius: 16px;
+    padding: 22px 20px;
+    max-width: 380px;
+    width: 100%;
+  }
+  .modal-box h2 {
+    font-size: 1.05rem;
+    margin: 0 0 10px;
+  }
+  .modal-box p {
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    line-height: 1.5;
+    margin: 0 0 10px;
+  }
+  .modal-box button {
+    width: 100%;
+    margin-top: 8px;
+    padding: 12px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+</style>
+
+<script type="text/babel">
+// Simple localStorage-backed replacement for window.storage (which only
+// exists inside Claude's artifact preview). Mimics the same {value} shape.
+async function localforageGet(key) {
+  const v = localStorage.getItem(key);
+  return v === null ? null : { value: v };
+}
+async function localforageSet(key, value) {
+  localStorage.setItem(key, value);
+  return { value };
+}
+
+const { useState, useEffect, useCallback } = React;
+
+// Base state sales tax rates (state-level rate, 2026, per Tax Foundation).
+// Editable by the user — local/county rates vary and aren't included here.
+const STATE_RATES = [
+  ["Alabama", 4.00], ["Alaska", 0.00], ["Arizona", 5.60], ["Arkansas", 6.50],
+  ["California", 7.25], ["Colorado", 2.90], ["Connecticut", 6.35], ["Delaware", 0.00],
+  ["District of Columbia", 6.00], ["Florida", 6.00], ["Georgia", 4.00], ["Hawaii", 4.00],
+  ["Idaho", 6.00], ["Illinois", 6.25], ["Indiana", 7.00], ["Iowa", 6.00],
+  ["Kansas", 6.50], ["Kentucky", 6.00], ["Louisiana", 5.00], ["Maine", 5.50],
+  ["Maryland", 6.00], ["Massachusetts", 6.25], ["Michigan", 6.00], ["Minnesota", 6.88],
+  ["Mississippi", 7.00], ["Missouri", 4.23], ["Montana", 0.00], ["Nebraska", 5.50],
+  ["Nevada", 6.85], ["New Hampshire", 0.00], ["New Jersey", 6.63], ["New Mexico", 4.88],
+  ["New York", 4.00], ["North Carolina", 4.75], ["North Dakota", 5.00], ["Ohio", 5.75],
+  ["Oklahoma", 4.50], ["Oregon", 0.00], ["Pennsylvania", 6.00], ["Rhode Island", 7.00],
+  ["South Carolina", 6.00], ["South Dakota", 4.20], ["Tennessee", 7.00], ["Texas", 6.25],
+  ["Utah", 6.10], ["Vermont", 6.00], ["Virginia", 5.30], ["Washington", 6.50],
+  ["West Virginia", 6.00], ["Wisconsin", 5.00], ["Wyoming", 4.00]
+];
+
+const DEFAULT_SETTINGS = {
+  state: "Massachusetts",
+  taxRate: 6.25,
+  primaryFee: 20,
+  primaryLabel: "Standard",
+  secondaryFee: 10,
+  secondaryLabel: "Repeat/Bulk",
+  miscEnabled: false,
+  miscLabel: "Misc / Handling",
+  miscFee: 5
+};
+
+function money(n) {
+  if (isNaN(n)) return "$0.00";
+  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+}
+
+function App() {
+  const [price, setPrice] = useState("");
+  const [feeType, setFeeType] = useState("primary");
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [draft, setDraft] = useState(DEFAULT_SETTINGS);
+  const [status, setStatus] = useState("");
+  const [loaded, setLoaded] = useState(false);
+
+  // disclaimer state
+  const [showModal, setShowModal] = useState(false);
+  const [showBanner, setShowBanner] = useState(true);
+
+  // inline tax quick-edit on the main screen
+  const [editingTax, setEditingTax] = useState(false);
+  const [taxDraft, setTaxDraft] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const result = await localforageGet('shopper-settings');
+        if (result && result.value) {
+          const parsed = JSON.parse(result.value);
+          const merged = { ...DEFAULT_SETTINGS, ...parsed };
+          setSettings(merged);
+          setDraft(merged);
+        }
+      } catch (e) {
+        // no saved settings yet
+      }
+      try {
+        const ack = await localforageGet('shopper-disclaimer-ack');
+        if (!ack || ack.value !== "true") {
+          setShowModal(true);
+        }
+      } catch (e) {
+        setShowModal(true);
+      }
+      setLoaded(true);
+    })();
+  }, []);
+
+  const acknowledgeDisclaimer = async () => {
+    setShowModal(false);
+    try {
+      await localforageSet('shopper-disclaimer-ack', 'true');
+    } catch (e) {
+      // if save fails it'll just re-show next launch, not a big deal
+    }
+  };
+
+  const handleStateChange = (stateName) => {
+    const found = STATE_RATES.find(([name]) => name === stateName);
+    setDraft({
+      ...draft,
+      state: stateName,
+      taxRate: found ? found[1] : draft.taxRate
+    });
+  };
+
+  const saveSettings = useCallback(async () => {
+    const cleaned = {
+      state: draft.state,
+      taxRate: parseFloat(draft.taxRate) || 0,
+      primaryFee: parseFloat(draft.primaryFee) || 0,
+      primaryLabel: draft.primaryLabel || "Standard",
+      secondaryFee: parseFloat(draft.secondaryFee) || 0,
+      secondaryLabel: draft.secondaryLabel || "Secondary",
+      miscEnabled: !!draft.miscEnabled,
+      miscLabel: draft.miscLabel || "Misc",
+      miscFee: parseFloat(draft.miscFee) || 0
+    };
+    try {
+      const result = await localforageSet('shopper-settings', JSON.stringify(cleaned));
+      if (result) {
+        setSettings(cleaned);
+        setDraft(cleaned);
+        setStatus("Saved as your default ✓");
+        setTimeout(() => setStatus(""), 2500);
+      } else {
+        setStatus("Save failed, try again");
+      }
+    } catch (e) {
+      setStatus("Save failed, try again");
+    }
+  }, [draft]);
+
+  // Quick tax edit directly from the main breakdown card (doesn't require
+  // opening Settings, and doesn't require hitting "Save as Default" —
+  // this just updates the rate used for the current calculation).
+  const startTaxEdit = () => {
+    setTaxDraft(String(settings.taxRate));
+    setEditingTax(true);
+  };
+  const applyTaxEdit = () => {
+    const val = parseFloat(taxDraft);
+    if (!isNaN(val) && val >= 0) {
+      const updated = { ...settings, taxRate: val };
+      setSettings(updated);
+      setDraft(updated);
+    }
+    setEditingTax(false);
+  };
+
+  const p = parseFloat(price) || 0;
+  const taxAmt = p * (settings.taxRate / 100);
+  const fee = feeType === "primary" ? settings.primaryFee : settings.secondaryFee;
+  const misc = settings.miscEnabled ? settings.miscFee : 0;
+  const total = p + taxAmt + fee + misc;
+
+  if (!loaded) return null;
+
+  return (
+    <div className="wrap">
+      {showModal && (
+        <div className="modal-overlay">
+          <div className="modal-box">
+            <h2>Before you start</h2>
+            <p>This calculator gives <strong>estimated totals</strong> to help price your sales. Sales tax rates shown are base state-level rates as of 2026 and don't include county or city add-ons, which many areas have.</p>
+            <p>It is not tax, legal, or financial advice. Always confirm the correct rate for your jurisdiction and consult a professional if you're unsure. Finders fees and misc fees are your own business terms — set them however you like.</p>
+            <button onClick={acknowledgeDisclaimer}>Got it</button>
+          </div>
+        </div>
+      )}
+
+      <h1>Personal Shopper Calculator</h1>
+      <div className="sub">Enter the retail tag price — tax, finders fee, and any misc fee are added automatically.</div>
+
+      {showBanner && (
+        <div className="disclaimer-banner">
+          <span className="dsm">⚠️</span>
+          <span>Estimates only — not tax or financial advice. Tax rates are base state rates; verify local county/city rates for your area.</span>
+          <button className="dismiss" onClick={() => setShowBanner(false)}>✕</button>
+        </div>
+      )}
+
+      <div className="card">
+        <div className="row">
+          <label>Retail Tag Price</label>
+          <div className="input-group">
+            <span className="prefix">$</span>
+            <input
+              type="number"
+              inputMode="decimal"
+              placeholder="0.00"
+              value={price}
+              onChange={e => setPrice(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="row">
+          <label>Finders Fee</label>
+          <div className="fee-toggle">
+            <button
+              className={"fee-btn" + (feeType === "primary" ? " active" : "")}
+              onClick={() => setFeeType("primary")}
+            >
+              {settings.primaryLabel}
+              <small>{money(settings.primaryFee)}</small>
+            </button>
+            <button
+              className={"fee-btn" + (feeType === "secondary" ? " active" : "")}
+              onClick={() => setFeeType("secondary")}
+            >
+              {settings.secondaryLabel}
+              <small>{money(settings.secondaryFee)}</small>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="breakdown-line">
+          <span className="label">Retail price</span>
+          <span className="val">{money(p)}</span>
+        </div>
+
+        <div className="breakdown-line">
+          {editingTax ? (
+            <div className="inline-tax-edit">
+              <span className="label">Tax — {settings.state}</span>
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                value={taxDraft}
+                onChange={e => setTaxDraft(e.target.value)}
+                autoFocus
+              />
+              <span className="label">%</span>
+              <button onClick={applyTaxEdit}>Apply</button>
+            </div>
+          ) : (
+            <React.Fragment>
+              <span className="tax-line-label">
+                <span className="label">Sales tax — {settings.state} ({settings.taxRate}%)</span>
+                <button className="edit-pencil" onClick={startTaxEdit}>Edit</button>
+              </span>
+              <span className="val">{money(taxAmt)}</span>
+            </React.Fragment>
+          )}
+        </div>
+
+        <div className="breakdown-line">
+          <span className="label">Finders fee ({feeType === "primary" ? settings.primaryLabel : settings.secondaryLabel})</span>
+          <span className="val">{money(fee)}</span>
+        </div>
+        {settings.miscEnabled && (
+          <div className="breakdown-line">
+            <span className="label">{settings.miscLabel}</span>
+            <span className="val">{money(misc)}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="total-card">
+        <div className="tlabel">Total to charge</div>
+        <div className="tval">{money(total)}</div>
+      </div>
+
+      <details>
+        <summary>Settings — state, tax, fees</summary>
+        <div className="settings-body">
+
+          <div className="section-label">State & Tax</div>
+          <div className="row">
+            <label>State</label>
+            <div className="input-group">
+              <select value={draft.state} onChange={e => handleStateChange(e.target.value)}>
+                {STATE_RATES.map(([name]) => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="row">
+            <label>Sales Tax Rate</label>
+            <div className="input-group">
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                value={draft.taxRate}
+                onChange={e => setDraft({ ...draft, taxRate: e.target.value })}
+              />
+              <span className="suffix">%</span>
+            </div>
+            <div className="hint">Fully editable — auto-fills from the state's base rate, but you can type any rate, including your local county/city total.</div>
+          </div>
+
+          <div className="section-label">Finders Fees</div>
+          <div className="row">
+            <label>Primary Fee Label</label>
+            <div className="input-group">
+              <input type="text" value={draft.primaryLabel} onChange={e => setDraft({ ...draft, primaryLabel: e.target.value })} />
+            </div>
+          </div>
+          <div className="row">
+            <label>Primary Fee Amount</label>
+            <div className="input-group">
+              <span className="prefix">$</span>
+              <input type="number" inputMode="decimal" value={draft.primaryFee} onChange={e => setDraft({ ...draft, primaryFee: e.target.value })} />
+            </div>
+          </div>
+          <div className="row">
+            <label>Secondary Fee Label</label>
+            <div className="input-group">
+              <input type="text" value={draft.secondaryLabel} onChange={e => setDraft({ ...draft, secondaryLabel: e.target.value })} />
+            </div>
+          </div>
+          <div className="row">
+            <label>Secondary Fee Amount</label>
+            <div className="input-group">
+              <span className="prefix">$</span>
+              <input type="number" inputMode="decimal" value={draft.secondaryFee} onChange={e => setDraft({ ...draft, secondaryFee: e.target.value })} />
+            </div>
+          </div>
+
+          <div className="section-label">Misc / Flat Fee</div>
+          <div className="row">
+            <div className="misc-row">
+              <label style={{marginBottom: 0}}>Add a misc flat fee</label>
+              <label className="switch">
+                <input
+                  type="checkbox"
+                  checked={!!draft.miscEnabled}
+                  onChange={e => setDraft({ ...draft, miscEnabled: e.target.checked })}
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
+          </div>
+          {draft.miscEnabled && (
+            <React.Fragment>
+              <div className="row">
+                <label>Misc Fee Label</label>
+                <div className="input-group">
+                  <input type="text" value={draft.miscLabel} onChange={e => setDraft({ ...draft, miscLabel: e.target.value })} />
+                </div>
+              </div>
+              <div className="row">
+                <label>Misc Fee Amount</label>
+                <div className="input-group">
+                  <span className="prefix">$</span>
+                  <input type="number" inputMode="decimal" value={draft.miscFee} onChange={e => setDraft({ ...draft, miscFee: e.target.value })} />
+                </div>
+              </div>
+            </React.Fragment>
+          )}
+
+          <button className="save-btn" onClick={saveSettings}>Save as Default</button>
+          <div className="status">{status}</div>
+        </div>
+      </details>
+
+      <div className="footnote">Settings save to this device and reload automatically next time. State tax rates are base state-level rates — check local rules for county/city add-ons. Not tax or financial advice.</div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('app')).render(<App />);
+</script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+
+<script>
+  // Register the service worker so the app works offline and is installable
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js').catch(console.error);
+    });
+  }
+</script>
+</body>
+</html>
