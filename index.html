@@ -263,6 +263,19 @@
     margin: 18px 0 8px;
   }
   .section-label:first-child { margin-top: 0; }
+  .subsection {
+    background: #faf7f4;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+  .subsection-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 10px;
+  }
   .save-btn {
     width: 100%;
     margin-top: 16px;
@@ -391,14 +404,31 @@ const STATE_RATES = [
 const DEFAULT_SETTINGS = {
   state: "Massachusetts",
   taxRate: 6.25,
-  primaryFee: 20,
   primaryLabel: "Standard",
-  secondaryFee: 10,
+  primaryFee: 20,
+  primaryMiscEnabled: false,
+  primaryMiscLabel: "Misc / Handling",
+  primaryMiscFee: 5,
   secondaryLabel: "Repeat/Bulk",
-  miscEnabled: false,
-  miscLabel: "Misc / Handling",
-  miscFee: 5
+  secondaryFee: 10,
+  secondaryMiscEnabled: false,
+  secondaryMiscLabel: "Misc / Handling",
+  secondaryMiscFee: 5
 };
+
+// Migrate settings saved under the old single shared "miscEnabled / miscLabel / miscFee"
+// shape into the new per-tier shape, so nobody's saved data breaks.
+function migrateSettings(parsed) {
+  const merged = { ...DEFAULT_SETTINGS, ...parsed };
+  if (parsed && ("miscEnabled" in parsed) && !("primaryMiscEnabled" in parsed)) {
+    merged.primaryMiscEnabled = !!parsed.miscEnabled;
+    merged.primaryMiscLabel = parsed.miscLabel || DEFAULT_SETTINGS.primaryMiscLabel;
+    merged.primaryMiscFee = parseFloat(parsed.miscFee) || 0;
+    // old shared fee only ever applied to one flat setting — leave secondary off by default
+    merged.secondaryMiscEnabled = false;
+  }
+  return merged;
+}
 
 function money(n) {
   if (isNaN(n)) return "$0.00";
@@ -427,7 +457,7 @@ function App() {
         const result = await localforageGet('shopper-settings');
         if (result && result.value) {
           const parsed = JSON.parse(result.value);
-          const merged = { ...DEFAULT_SETTINGS, ...parsed };
+          const merged = migrateSettings(parsed);
           setSettings(merged);
           setDraft(merged);
         }
@@ -468,13 +498,16 @@ function App() {
     const cleaned = {
       state: draft.state,
       taxRate: parseFloat(draft.taxRate) || 0,
-      primaryFee: parseFloat(draft.primaryFee) || 0,
       primaryLabel: draft.primaryLabel || "Standard",
-      secondaryFee: parseFloat(draft.secondaryFee) || 0,
+      primaryFee: parseFloat(draft.primaryFee) || 0,
+      primaryMiscEnabled: !!draft.primaryMiscEnabled,
+      primaryMiscLabel: draft.primaryMiscLabel || "Misc",
+      primaryMiscFee: parseFloat(draft.primaryMiscFee) || 0,
       secondaryLabel: draft.secondaryLabel || "Secondary",
-      miscEnabled: !!draft.miscEnabled,
-      miscLabel: draft.miscLabel || "Misc",
-      miscFee: parseFloat(draft.miscFee) || 0
+      secondaryFee: parseFloat(draft.secondaryFee) || 0,
+      secondaryMiscEnabled: !!draft.secondaryMiscEnabled,
+      secondaryMiscLabel: draft.secondaryMiscLabel || "Misc",
+      secondaryMiscFee: parseFloat(draft.secondaryMiscFee) || 0
     };
     try {
       const result = await localforageSet('shopper-settings', JSON.stringify(cleaned));
@@ -510,8 +543,12 @@ function App() {
 
   const p = parseFloat(price) || 0;
   const taxAmt = p * (settings.taxRate / 100);
-  const fee = feeType === "primary" ? settings.primaryFee : settings.secondaryFee;
-  const misc = settings.miscEnabled ? settings.miscFee : 0;
+  const isPrimary = feeType === "primary";
+  const fee = isPrimary ? settings.primaryFee : settings.secondaryFee;
+  const miscEnabled = isPrimary ? settings.primaryMiscEnabled : settings.secondaryMiscEnabled;
+  const miscLabel = isPrimary ? settings.primaryMiscLabel : settings.secondaryMiscLabel;
+  const miscFee = isPrimary ? settings.primaryMiscFee : settings.secondaryMiscFee;
+  const misc = miscEnabled ? miscFee : 0;
   const total = p + taxAmt + fee + misc;
 
   if (!loaded) return null;
@@ -609,12 +646,12 @@ function App() {
         </div>
 
         <div className="breakdown-line">
-          <span className="label">Finders fee ({feeType === "primary" ? settings.primaryLabel : settings.secondaryLabel})</span>
+          <span className="label">Finders fee ({isPrimary ? settings.primaryLabel : settings.secondaryLabel})</span>
           <span className="val">{money(fee)}</span>
         </div>
-        {settings.miscEnabled && (
+        {miscEnabled && (
           <div className="breakdown-line">
-            <span className="label">{settings.miscLabel}</span>
+            <span className="label">{miscLabel}</span>
             <span className="val">{money(misc)}</span>
           </div>
         )}
@@ -655,65 +692,101 @@ function App() {
             <div className="hint">Fully editable — auto-fills from the state's base rate, but you can type any rate, including your local county/city total.</div>
           </div>
 
-          <div className="section-label">Finders Fees</div>
-          <div className="row">
-            <label>Primary Fee Label</label>
-            <div className="input-group">
-              <input type="text" value={draft.primaryLabel} onChange={e => setDraft({ ...draft, primaryLabel: e.target.value })} />
+          <div className="section-label">Fee Tiers</div>
+
+          <div className="subsection">
+            <div className="subsection-title">Tier 1</div>
+            <div className="row">
+              <label>Label</label>
+              <div className="input-group">
+                <input type="text" value={draft.primaryLabel} onChange={e => setDraft({ ...draft, primaryLabel: e.target.value })} />
+              </div>
             </div>
-          </div>
-          <div className="row">
-            <label>Primary Fee Amount</label>
-            <div className="input-group">
-              <span className="prefix">$</span>
-              <input type="number" inputMode="decimal" value={draft.primaryFee} onChange={e => setDraft({ ...draft, primaryFee: e.target.value })} />
+            <div className="row">
+              <label>Finders Fee Amount</label>
+              <div className="input-group">
+                <span className="prefix">$</span>
+                <input type="number" inputMode="decimal" value={draft.primaryFee} onChange={e => setDraft({ ...draft, primaryFee: e.target.value })} />
+              </div>
             </div>
-          </div>
-          <div className="row">
-            <label>Secondary Fee Label</label>
-            <div className="input-group">
-              <input type="text" value={draft.secondaryLabel} onChange={e => setDraft({ ...draft, secondaryLabel: e.target.value })} />
+            <div className="row">
+              <div className="misc-row">
+                <label style={{marginBottom: 0}}>Add a misc flat fee</label>
+                <label className="switch">
+                  <input
+                    type="checkbox"
+                    checked={!!draft.primaryMiscEnabled}
+                    onChange={e => setDraft({ ...draft, primaryMiscEnabled: e.target.checked })}
+                  />
+                  <span className="slider"></span>
+                </label>
+              </div>
             </div>
-          </div>
-          <div className="row">
-            <label>Secondary Fee Amount</label>
-            <div className="input-group">
-              <span className="prefix">$</span>
-              <input type="number" inputMode="decimal" value={draft.secondaryFee} onChange={e => setDraft({ ...draft, secondaryFee: e.target.value })} />
-            </div>
+            {draft.primaryMiscEnabled && (
+              <React.Fragment>
+                <div className="row">
+                  <label>Misc Fee Label</label>
+                  <div className="input-group">
+                    <input type="text" value={draft.primaryMiscLabel} onChange={e => setDraft({ ...draft, primaryMiscLabel: e.target.value })} />
+                  </div>
+                </div>
+                <div className="row">
+                  <label>Misc Fee Amount</label>
+                  <div className="input-group">
+                    <span className="prefix">$</span>
+                    <input type="number" inputMode="decimal" value={draft.primaryMiscFee} onChange={e => setDraft({ ...draft, primaryMiscFee: e.target.value })} />
+                  </div>
+                </div>
+              </React.Fragment>
+            )}
           </div>
 
-          <div className="section-label">Misc / Flat Fee</div>
-          <div className="row">
-            <div className="misc-row">
-              <label style={{marginBottom: 0}}>Add a misc flat fee</label>
-              <label className="switch">
-                <input
-                  type="checkbox"
-                  checked={!!draft.miscEnabled}
-                  onChange={e => setDraft({ ...draft, miscEnabled: e.target.checked })}
-                />
-                <span className="slider"></span>
-              </label>
+          <div className="subsection">
+            <div className="subsection-title">Tier 2</div>
+            <div className="row">
+              <label>Label</label>
+              <div className="input-group">
+                <input type="text" value={draft.secondaryLabel} onChange={e => setDraft({ ...draft, secondaryLabel: e.target.value })} />
+              </div>
             </div>
+            <div className="row">
+              <label>Finders Fee Amount</label>
+              <div className="input-group">
+                <span className="prefix">$</span>
+                <input type="number" inputMode="decimal" value={draft.secondaryFee} onChange={e => setDraft({ ...draft, secondaryFee: e.target.value })} />
+              </div>
+            </div>
+            <div className="row">
+              <div className="misc-row">
+                <label style={{marginBottom: 0}}>Add a misc flat fee</label>
+                <label className="switch">
+                  <input
+                    type="checkbox"
+                    checked={!!draft.secondaryMiscEnabled}
+                    onChange={e => setDraft({ ...draft, secondaryMiscEnabled: e.target.checked })}
+                  />
+                  <span className="slider"></span>
+                </label>
+              </div>
+            </div>
+            {draft.secondaryMiscEnabled && (
+              <React.Fragment>
+                <div className="row">
+                  <label>Misc Fee Label</label>
+                  <div className="input-group">
+                    <input type="text" value={draft.secondaryMiscLabel} onChange={e => setDraft({ ...draft, secondaryMiscLabel: e.target.value })} />
+                  </div>
+                </div>
+                <div className="row">
+                  <label>Misc Fee Amount</label>
+                  <div className="input-group">
+                    <span className="prefix">$</span>
+                    <input type="number" inputMode="decimal" value={draft.secondaryMiscFee} onChange={e => setDraft({ ...draft, secondaryMiscFee: e.target.value })} />
+                  </div>
+                </div>
+              </React.Fragment>
+            )}
           </div>
-          {draft.miscEnabled && (
-            <React.Fragment>
-              <div className="row">
-                <label>Misc Fee Label</label>
-                <div className="input-group">
-                  <input type="text" value={draft.miscLabel} onChange={e => setDraft({ ...draft, miscLabel: e.target.value })} />
-                </div>
-              </div>
-              <div className="row">
-                <label>Misc Fee Amount</label>
-                <div className="input-group">
-                  <span className="prefix">$</span>
-                  <input type="number" inputMode="decimal" value={draft.miscFee} onChange={e => setDraft({ ...draft, miscFee: e.target.value })} />
-                </div>
-              </div>
-            </React.Fragment>
-          )}
 
           <button className="save-btn" onClick={saveSettings}>Save as Default</button>
           <div className="status">{status}</div>
@@ -733,7 +806,6 @@ ReactDOM.createRoot(document.getElementById('app')).render(<App />);
 
 
 <script>
-  // Register the service worker so the app works offline and is installable
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('service-worker.js').catch(console.error);
