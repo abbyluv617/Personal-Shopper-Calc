@@ -1,6 +1,6 @@
 {
-  "name": "Personal Shopper Calculator",
-  "short_name": "Shopper Calc",
+  "name": "KaliCalc",
+  "short_name": "KaliCalc",
   "description": "Calculate retail price + tax + finders fee totals for personal shopping sales.",
   "start_url": "./index.html",
   "display": "standalone",
