@@ -96,6 +96,17 @@
     font-family: inherit;
   }
   .input-group select { appearance: none; -webkit-appearance: none; }
+  .input-group .clear-btn {
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 8px 12px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .input-group .clear-btn:active { color: var(--accent); }
   .hint {
     font-size: 0.72rem;
     color: var(--ink-soft);
@@ -238,6 +249,11 @@
     font-size: 2rem;
     font-weight: 700;
     letter-spacing: -0.02em;
+  }
+  .total-card .talt {
+    font-size: 0.78rem;
+    color: #cfc9c2;
+    margin-top: 4px;
   }
 
   details {
@@ -404,6 +420,7 @@ const STATE_RATES = [
 const DEFAULT_SETTINGS = {
   state: "Massachusetts",
   taxRate: 6.25,
+  roundUp: false,
   primaryLabel: "Standard",
   primaryFee: 20,
   primaryMiscEnabled: false,
@@ -498,6 +515,7 @@ function App() {
     const cleaned = {
       state: draft.state,
       taxRate: parseFloat(draft.taxRate) || 0,
+      roundUp: !!draft.roundUp,
       primaryLabel: draft.primaryLabel || "Standard",
       primaryFee: parseFloat(draft.primaryFee) || 0,
       primaryMiscEnabled: !!draft.primaryMiscEnabled,
@@ -549,7 +567,9 @@ function App() {
   const miscLabel = isPrimary ? settings.primaryMiscLabel : settings.secondaryMiscLabel;
   const miscFee = isPrimary ? settings.primaryMiscFee : settings.secondaryMiscFee;
   const misc = miscEnabled ? miscFee : 0;
-  const total = p + taxAmt + fee + misc;
+  const exactTotal = p + taxAmt + fee + misc;
+  const roundedTotal = Math.ceil(exactTotal);
+  const displayTotal = settings.roundUp ? roundedTotal : exactTotal;
 
   if (!loaded) return null;
 
@@ -589,6 +609,9 @@ function App() {
               value={price}
               onChange={e => setPrice(e.target.value)}
             />
+            {price !== "" && (
+              <button className="clear-btn" onClick={() => setPrice("")} aria-label="Clear price">✕</button>
+            )}
           </div>
         </div>
 
@@ -659,7 +682,12 @@ function App() {
 
       <div className="total-card">
         <div className="tlabel">Total to charge</div>
-        <div className="tval">{money(total)}</div>
+        <div className="tval">{settings.roundUp ? ("$" + roundedTotal) : money(exactTotal)}</div>
+        <div className="talt">
+          {settings.roundUp
+            ? `Exact: ${money(exactTotal)}`
+            : `Rounded up: $${roundedTotal}`}
+        </div>
       </div>
 
       <details>
@@ -690,6 +718,21 @@ function App() {
               <span className="suffix">%</span>
             </div>
             <div className="hint">Fully editable — auto-fills from the state's base rate, but you can type any rate, including your local county/city total.</div>
+          </div>
+
+          <div className="row">
+            <div className="misc-row">
+              <label style={{marginBottom: 0}}>Round total up to nearest dollar</label>
+              <label className="switch">
+                <input
+                  type="checkbox"
+                  checked={!!draft.roundUp}
+                  onChange={e => setDraft({ ...draft, roundUp: e.target.checked })}
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
+            <div className="hint">When on, the big total shown is rounded up to the next whole dollar. The exact amount is always shown just below it either way.</div>
           </div>
 
           <div className="section-label">Fee Tiers</div>
