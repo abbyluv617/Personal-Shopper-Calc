@@ -3,16 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<title>Personal Shopper Calculator</title>
+<title>KaliCalc</title>
 
-<!-- PWA setup -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1f1c1a">
 
-<!-- iOS "Add to Home Screen" support -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Shopper Calc">
+<meta name="apple-mobile-web-app-title" content="KaliCalc">
 <link rel="apple-touch-icon" href="icon-192.png">
 
 <link rel="icon" href="icon-192.png">
@@ -386,8 +384,6 @@
 </style>
 
 <script type="text/babel">
-// Simple localStorage-backed replacement for window.storage (which only
-// exists inside Claude's artifact preview). Mimics the same {value} shape.
 async function localforageGet(key) {
   const v = localStorage.getItem(key);
   return v === null ? null : { value: v };
@@ -586,7 +582,7 @@ function App() {
         </div>
       )}
 
-      <h1>Personal Shopper Calculator</h1>
+      <h1>KaliCalc</h1>
       <div className="sub">Enter the retail tag price — tax, finders fee, and any misc fee are added automatically.</div>
 
       {showBanner && (
