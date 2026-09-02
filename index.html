@@ -381,6 +381,94 @@
     font-size: 0.9rem;
     cursor: pointer;
   }
+
+  /* License gate screen */
+  .gate-wrap {
+    max-width: 400px;
+    margin: 0 auto;
+    padding: 60px 16px 40px;
+    text-align: center;
+  }
+  .gate-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    background: var(--ink);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1.6rem;
+    margin: 0 auto 16px;
+  }
+  .gate-wrap h1 {
+    font-size: 1.4rem;
+    margin: 0 0 6px;
+  }
+  .gate-wrap .gate-sub {
+    color: var(--ink-soft);
+    font-size: 0.88rem;
+    margin-bottom: 24px;
+    line-height: 1.4;
+  }
+  .gate-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px;
+    text-align: left;
+  }
+  .gate-card label {
+    margin-bottom: 8px;
+  }
+  .gate-input {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 1rem;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.02em;
+    outline: none;
+    box-sizing: border-box;
+  }
+  .gate-input:focus { border-color: var(--accent); }
+  .gate-btn {
+    width: 100%;
+    margin-top: 12px;
+    padding: 13px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.92rem;
+    cursor: pointer;
+  }
+  .gate-btn:disabled { opacity: 0.6; cursor: default; }
+  .gate-error {
+    background: #fbe9e7;
+    color: #8a3324;
+    border: 1px solid #edc2ba;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 0.82rem;
+    margin-top: 12px;
+    line-height: 1.4;
+  }
+  .gate-buy {
+    text-align: center;
+    margin-top: 22px;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+  }
+  .gate-buy a {
+    color: var(--accent);
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .gate-buy a:active { opacity: 0.7; }
 </style>
 
 <script type="text/babel">
@@ -837,7 +925,114 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('app')).render(<App />);
+// ---- License gate ----
+// Public Gumroad product ID (safe to embed client-side — this is how
+// Gumroad's own license verification API is designed to be used).
+const GUMROAD_PRODUCT_ID = "bhKyPkT8W24cZkBd-uyPLQ==";
+// Update this to your real Gumroad product page URL once you have it.
+const GUMROAD_BUY_URL = "https://abbylove8.gumroad.com/l/abmxr";
+// How many times a single key is allowed to be activated (rough anti-sharing check —
+// Gumroad tracks a "uses" count each time we verify with increment_uses_count).
+const MAX_ACTIVATIONS = 2;
+
+function LicenseGate() {
+  const [checking, setChecking] = useState(true);
+  const [unlocked, setUnlocked] = useState(false);
+  const [keyInput, setKeyInput] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const saved = await localforageGet('kalicalc-license');
+        if (saved && saved.value === "true") {
+          setUnlocked(true);
+        }
+      } catch (e) {
+        // no saved license yet
+      }
+      setChecking(false);
+    })();
+  }, []);
+
+  const verifyKey = async () => {
+    const trimmed = keyInput.trim();
+    if (!trimmed) {
+      setError("Enter your license key to continue.");
+      return;
+    }
+    setVerifying(true);
+    setError("");
+    try {
+      const body = new URLSearchParams();
+      body.append("product_id", GUMROAD_PRODUCT_ID);
+      body.append("license_key", trimmed);
+      body.append("increment_uses_count", "true");
+
+      const res = await fetch("https://api.gumroad.com/v2/licenses/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: body.toString()
+      });
+      const data = await res.json();
+
+      if (!data.success) {
+        setError("That license key wasn't recognized. Double check the key from your purchase email.");
+        setVerifying(false);
+        return;
+      }
+      if (data.purchase && (data.purchase.refunded || data.purchase.chargebacked)) {
+        setError("This license is no longer valid (refunded or disputed). Contact the seller if this seems wrong.");
+        setVerifying(false);
+        return;
+      }
+      if (typeof data.uses === "number" && data.uses > MAX_ACTIVATIONS) {
+        setError("This license has already been activated on the maximum number of devices. Contact the seller if you need help.");
+        setVerifying(false);
+        return;
+      }
+
+      await localforageSet('kalicalc-license', 'true');
+      setUnlocked(true);
+    } catch (e) {
+      setError("Couldn't verify right now — check your internet connection and try again.");
+    }
+    setVerifying(false);
+  };
+
+  if (checking) return null;
+  if (unlocked) return <App />;
+
+  return (
+    <div className="gate-wrap">
+      <div className="gate-icon">K</div>
+      <h1>Unlock KaliCalc</h1>
+      <div className="gate-sub">Enter the license key from your purchase email to activate this app on this device.</div>
+      <div className="gate-card">
+        <label>License Key</label>
+        <input
+          className="gate-input"
+          type="text"
+          placeholder="XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX"
+          value={keyInput}
+          onChange={e => setKeyInput(e.target.value)}
+          autoCapitalize="off"
+          autoCorrect="off"
+        />
+        <button className="gate-btn" onClick={verifyKey} disabled={verifying}>
+          {verifying ? "Checking…" : "Unlock"}
+        </button>
+        {error && <div className="gate-error">{error}</div>}
+      </div>
+      <div className="gate-buy">
+        Don't have a key yet? <a href={GUMROAD_BUY_URL} target="_blank" rel="noopener noreferrer">Get KaliCalc on Gumroad →</a>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('app')).render(<LicenseGate />);
 </script>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
