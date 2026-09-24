@@ -105,6 +105,18 @@
     flex-shrink: 0;
   }
   .input-group .clear-btn:active { color: var(--accent); }
+  .discount-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.92rem;
+    padding: 7px 0;
+    border-bottom: 1px dashed var(--line);
+    gap: 10px;
+    color: var(--good);
+  }
+  .discount-line .label { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--good); }
+  .discount-line .val { font-weight: 600; white-space: nowrap; }
   .hint {
     font-size: 0.72rem;
     color: var(--ink-soft);
@@ -538,6 +550,7 @@ function money(n) {
 
 function App() {
   const [price, setPrice] = useState("");
+  const [discount, setDiscount] = useState("");
   const [feeType, setFeeType] = useState("primary");
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [draft, setDraft] = useState(DEFAULT_SETTINGS);
@@ -644,14 +657,17 @@ function App() {
   };
 
   const p = parseFloat(price) || 0;
-  const taxAmt = p * (settings.taxRate / 100);
+  const discountPct = Math.min(Math.max(parseFloat(discount) || 0, 0), 100);
+  const discountAmt = p * (discountPct / 100);
+  const discountedPrice = p - discountAmt;
+  const taxAmt = discountedPrice * (settings.taxRate / 100);
   const isPrimary = feeType === "primary";
   const fee = isPrimary ? settings.primaryFee : settings.secondaryFee;
   const miscEnabled = isPrimary ? settings.primaryMiscEnabled : settings.secondaryMiscEnabled;
   const miscLabel = isPrimary ? settings.primaryMiscLabel : settings.secondaryMiscLabel;
   const miscFee = isPrimary ? settings.primaryMiscFee : settings.secondaryMiscFee;
   const misc = miscEnabled ? miscFee : 0;
-  const exactTotal = p + taxAmt + fee + misc;
+  const exactTotal = discountedPrice + taxAmt + fee + misc;
   const roundedTotal = Math.ceil(exactTotal);
   const displayTotal = settings.roundUp ? roundedTotal : exactTotal;
 
@@ -671,7 +687,7 @@ function App() {
       )}
 
       <h1>KaliCalc</h1>
-      <div className="sub">Enter the retail tag price — tax, finders fee, and any misc fee are added automatically.</div>
+      <div className="sub">Enter the retail tag price — apply a discount if needed, then tax, finders fee, and any misc fee are added automatically.</div>
 
       {showBanner && (
         <div className="disclaimer-banner">
@@ -695,6 +711,25 @@ function App() {
             />
             {price !== "" && (
               <button className="clear-btn" onClick={() => setPrice("")} aria-label="Clear price">✕</button>
+            )}
+          </div>
+        </div>
+
+        <div className="row">
+          <label>Discount Off Retail (optional)</label>
+          <div className="input-group">
+            <input
+              type="number"
+              inputMode="decimal"
+              placeholder="0"
+              min="0"
+              max="100"
+              value={discount}
+              onChange={e => setDiscount(e.target.value)}
+            />
+            <span className="suffix">%</span>
+            {discount !== "" && (
+              <button className="clear-btn" onClick={() => setDiscount("")} aria-label="Clear discount">✕</button>
             )}
           </div>
         </div>
@@ -725,6 +760,19 @@ function App() {
           <span className="label">Retail price</span>
           <span className="val">{money(p)}</span>
         </div>
+
+        {discountPct > 0 && (
+          <React.Fragment>
+            <div className="discount-line">
+              <span className="label">Discount ({discountPct}%)</span>
+              <span className="val">-{money(discountAmt)}</span>
+            </div>
+            <div className="breakdown-line">
+              <span className="label">Price after discount</span>
+              <span className="val">{money(discountedPrice)}</span>
+            </div>
+          </React.Fragment>
+        )}
 
         <div className="breakdown-line">
           {editingTax ? (
